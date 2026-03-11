@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PharmaFlow ERP - Staff</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">PharmaFlow</div>
+    <nav>
+      <a class="active" onclick="showTab('medicine')">Dashboard</a>
+      <a onclick="showTab('attendance')">Attendance</a>
+      <a onclick="showTab('profile')">My Profile</a>
+      <a href="billing.html">Billing</a>
+      <a href="index.html" onclick="logout();return false;">Logout</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HEADER -->
+    <header class="topbar">
+      <div>
+        <h2 id="pageTitle">📦 Staff Dashboard</h2>
+        <p class="subtext" id="pageSubtitle">Manage medicines, attendance & billing</p>
+      </div>
+      <div class="user-card">
+        <img id="staffPhoto" src="" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;display:none;margin-right:8px;">
+        <span id="staffName">👤 Staff Account</span>
+      </div>
+    </header>
+
+    <!-- TABS -->
+    <div id="tabs" style="margin-bottom:20px; border-bottom:1px solid #e5e7eb; display:flex; gap:20px;">
+      <button onclick="showTab('medicine')" class="tab-btn active">Medicine Locator</button>
+      <button onclick="showTab('attendance')" class="tab-btn">Attendance</button>
+      <button onclick="showTab('profile')" class="tab-btn">Profile</button>
+    </div>
+
+    <!-- MEDICINE TAB -->
+    <div id="medicineTab" class="tab-content">
+      <!-- KPI -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <span>Total Medicines</span>
+          <h3 id="totalMed">0</h3>
+        </div>
+        <div class="kpi-card">
+          <span>Total Stock Units</span>
+          <h3 id="totalStock">0</h3>
+        </div>
+      </section>
+
+      <!-- CONTENT -->
+      <section class="content-grid">
+
+        <!-- SEARCH PANEL -->
+        <div class="panel">
+          <h3>Medicine Locator</h3>
+
+          <div class="search-box">
+            <input id="search" placeholder="Enter medicine name">
+            <button id="searchBtn">Locate</button>
+          </div>
+
+          <div id="result" class="result-card"></div>
+        </div>
+
+        <!-- RACK MAP -->
+        <div class="panel">
+          <h3>Rack Layout</h3>
+
+          <div class="rack">
+
+            <!-- Auto 4x4 -->
+            <script>
+              for(let r=1;r<=4;r++){
+                for(let s=1;s<=4;s++){
+                  document.write(`<div id="R${r}S${s}" class="slot">R${r}-S${s}</div>`);
+                }
+              }
+            </script>
+
+          </div>
+
+          <button class="secondary-btn" onclick="checkStock()">Check Low Stock</button>
+          <p id="alert"></p>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- ATTENDANCE TAB -->
+    <div id="attendanceTab" class="tab-content" style="display:none;">
+      <div class="panel">
+        <h3>📋 Your Attendance Status</h3>
+        <div id="todayAttendanceStatus" style="padding:20px; text-align:center; font-size:1.2em;">
+          <p>Waiting for admin to mark attendance...</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>📅 Attendance History (Last 30 days)</h3>
+        <div id="attendanceList" style="max-height:400px; overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <!-- PROFILE TAB -->
+    <div id="profileTab" class="tab-content" style="display:none;">
+      <div class="panel">
+        <h3>My Profile</h3>
+        <div style="padding:20px;">
+          <div style="margin-bottom:15px; text-align:center; position:relative;">
+            <img id="profilePhotoPreview" src="" alt="Profile photo" style="width:80px;height:80px;border-radius:50%;object-fit:cover;display:none; margin-bottom:10px;" />
+            <div>
+              <input type="file" id="profilePhotoInput" accept="image/*" style="display:block; margin:0 auto;" />
+            </div>
+            <button id="changePhotoBtn" style="display:none; position:absolute; top:5px; right:5px; background:#2563eb; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8em;">Edit</button>
+          </div>
+          <div style="margin-bottom:15px;">
+            <label>Name:</label>
+            <input id="profileName" placeholder="Full name" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px;">
+          </div>
+          <div style="margin-bottom:15px;">
+            <label>Email:</label>
+            <input id="profileEmail" placeholder="Email address" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px;">
+          </div>
+          <div style="margin-bottom:15px;">
+            <label>Phone:</label>
+            <input id="profilePhone" placeholder="Phone number" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px;">
+          </div>
+          <button onclick="updateProfile()" class="primary-btn">Save Changes</button>
+          <p id="profileMsg"></p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="script.js"></script>
+
+<script>
+let currentUser = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  currentUser = verifyRole("staff");
+  if (!currentUser) return;
+  
+  document.getElementById("staffName").innerText = currentUser.name || "Staff";
+  if (currentUser.photo) {
+    const headerImg = document.getElementById('staffPhoto');
+    if (headerImg) {
+      headerImg.src = currentUser.photo;
+      headerImg.style.display = 'inline-block';
+    }
+  }
+  loadStats();
+  loadAttendance();
+  loadProfile();
+  
+  document.getElementById("searchBtn").addEventListener("click", searchMed);
+  const searchInput = document.getElementById("search");
+  if (searchInput) {
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") searchMed();
+    });
+  }
+
+  // profile photo input handling
+  const photoInput = document.getElementById('profilePhotoInput');
+  const changeBtn = document.getElementById('changePhotoBtn');
+  if (changeBtn) {
+    changeBtn.addEventListener('click', () => {
+      if (photoInput) photoInput.click();
+    });
+  }
+  if (photoInput) {
+    photoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          const preview = document.getElementById('profilePhotoPreview');
+          if (preview) {
+            preview.src = dataUrl;
+            preview.style.display = 'block';
+          }
+          // show edit button once a photo is selected
+          if (changeBtn) changeBtn.style.display = 'inline-block';
+          // temporarily save to global so updateProfile can send it
+          window.newProfilePhoto = dataUrl;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+  
+  // Listen for attendance notifications from admin
+  startAttendanceListener();
+});
+
+function showTab(tab) {
+  // Hide all tabs
+  document.getElementById("medicineTab").style.display = "none";
+  document.getElementById("attendanceTab").style.display = "none";
+  document.getElementById("profileTab").style.display = "none";
+  
+  // Show selected tab
+  document.getElementById(tab + "Tab").style.display = "block";
+  
+  // Update tab buttons
+  const btns = document.querySelectorAll(".tab-btn");
+  btns.forEach(b => b.classList.remove("active"));
+  event.target.classList.add("active");
+}
+
+async function loadStats(){
+  try {
+    const r = await fetch("/analytics");
+    const data = await r.json();
+    document.getElementById("totalMed").innerText = data.totalMedicines || 0;
+    document.getElementById("totalStock").innerText = data.totalStock || 0;
+  } catch (err) {
+    console.error("Error loading stats", err);
+  }
+}
+
+async function loadProfile() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(`/staff/${currentUser._id}/profile`);
+    const data = await res.json();
+    document.getElementById("profileName").value = data.name || "";
+    document.getElementById("profileEmail").value = data.email || "";
+    document.getElementById("profilePhone").value = data.phone || "";
+
+    // show photo if available
+    if (data.photo) {
+      const preview = document.getElementById('profilePhotoPreview');
+      if (preview) {
+        preview.src = data.photo;
+        preview.style.display = 'block';
+      }
+      const headerImg = document.getElementById('staffPhoto');
+      if (headerImg) {
+        headerImg.src = data.photo;
+        headerImg.style.display = 'inline-block';
+      }
+    }
+  } catch (err) {
+    console.error("Error loading profile", err);
+  }
+}
+
+async function updateProfile() {
+  if (!currentUser) return;
+  const name = document.getElementById("profileName").value;
+  const email = document.getElementById("profileEmail").value;
+  const phone = document.getElementById("profilePhone").value;
+  const msg = document.getElementById("profileMsg");
+  
+  // include photo if user selected a new one
+  const photo = window.newProfilePhoto;
+
+  try {
+    const payload = { name, email, phone };
+    if (photo) payload.photo = photo;
+
+    const res = await fetch(`/staff/${currentUser._id}/profile`, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.innerText = data.message || "✗ Failed to update profile";
+      console.error("Profile update response error", data);
+      return;
+    }
+    msg.innerText = "✓ Profile updated successfully";
+    currentUser = data;
+    sessionStorage.setItem("user", JSON.stringify(data));
+
+    // update header photo if changed
+    if (data.photo) {
+      const headerImg = document.getElementById('staffPhoto');
+      if (headerImg) {
+        headerImg.src = data.photo;
+        headerImg.style.display = 'inline-block';
+      }
+    }
+
+    // clear the temp photo variable so future updates don't resend
+    window.newProfilePhoto = null;
+  } catch (err) {
+    msg.innerText = "✗ Failed to update profile";
+    console.error("Profile update fetch error", err);
+  }
+}
+
+// Listen for attendance notifications from admin
+let attendancePopupShown = localStorage.getItem('attendancePopupShown') === 'true'; // ensure only one popup ever
+function startAttendanceListener() {
+  // Check for attendance updates every 5 seconds
+  const intervalId = setInterval(async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`/attendance/${currentUser._id}/today`);
+      const data = await res.json();
+      
+      if (data.marked) {
+        const status = data.status;
+        const statusColor = status === "present" ? "#10b981" : (status === "absent" ? "#ef4444" : "#f59e0b");
+        
+        // Update UI
+        const statusDiv = document.getElementById("todayAttendanceStatus");
+        if (statusDiv) {
+          statusDiv.innerHTML = `<p style="color:${statusColor}; font-weight:bold; font-size:1.5em;">✓ Attendance Marked: <span style="text-transform:uppercase;">${status}</span></p>
+            <p style="color:#666; margin-top:10px;">Marked at: ${new Date(data.timestamp).toLocaleTimeString()}</p>`;
+        }
+        
+        // Show popup notification only once
+        if (!attendancePopupShown) {
+          showAttendancePopup(status);
+          attendancePopupShown = true;
+          localStorage.setItem('attendancePopupShown', 'true');
+        }
+        
+        // Reload attendance list
+        loadAttendance();
+        
+        // if popup has been shown already, we can clear the interval to avoid further polling
+        if (attendancePopupShown) {
+          clearInterval(intervalId);
+        }
+      }
+    } catch (err) {
+      console.log("Checking attendance...");
+    }
+  }, 5000);
+}
+
+function showAttendancePopup(status) {
+  const statusColor = status === "present" ? "#10b981" : (status === "absent" ? "#ef4444" : "#f59e0b");
+  const statusIcon = status === "present" ? "✓" : "✗";
+  
+  const popup = document.createElement("div");
+  popup.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border-left: 5px solid ${statusColor};
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 10000;
+    min-width: 300px;
+    animation: slideIn 0.3s ease;
+  `;
+  
+  popup.innerHTML = `
+    <div style="color:${statusColor}; font-weight:bold; font-size:1.3em; margin-bottom:10px;">
+      ${statusIcon} Attendance Marked
+    </div>
+    <div style="color:#666; font-size:1.1em; text-transform:uppercase;">
+      Status: ${status}
+    </div>
+    <p style="color:#999; font-size:0.9em; margin-top:10px;">
+      Admin has recorded your attendance
+    </p>
+  `;
+  
+  document.body.appendChild(popup);
+  
+  // Add animation styles
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => popup.remove(), 5000);
+}
+
+async function loadAttendance() {
+  if (!currentUser) return;
+  
+  try {
+    const res = await fetch(`/attendance/${currentUser._id}`);
+    const records = await res.json();
+    const list = document.getElementById("attendanceList");
+    
+    if (records.length === 0) {
+      list.innerHTML = "<p>No attendance records</p>";
+      return;
+    }
+    
+    let html = "<table style='width:100%; border-collapse:collapse;'>";
+    html += "<tr style='background:#f3f4f6; font-weight:bold;'><th style='padding:10px; text-align:left; border-bottom:1px solid #ddd;'>Date</th><th style='padding:10px; text-align:left; border-bottom:1px solid #ddd;'>Status</th><th style='padding:10px; text-align:left; border-bottom:1px solid #ddd;'>Check In</th><th style='padding:10px; text-align:left; border-bottom:1px solid #ddd;'>Check Out</th></tr>";
+    
+    records.forEach(r => {
+      const date = new Date(r.date).toLocaleDateString();
+      const checkIn = r.check_in ? new Date(r.check_in).toLocaleTimeString() : "-";
+      const checkOut = r.check_out ? new Date(r.check_out).toLocaleTimeString() : "-";
+      const statusColor = r.status === "present" ? "#10b981" : (r.status === "absent" ? "#ef4444" : "#f59e0b");
+      
+      html += `<tr style='border-bottom:1px solid #ddd;'>
+        <td style='padding:10px;'>${date}</td>
+        <td style='padding:10px; color:${statusColor}; font-weight:bold;'>${r.status}</td>
+        <td style='padding:10px;'>${checkIn}</td>
+        <td style='padding:10px;'>${checkOut}</td>
+      </tr>`;
+    });
+    
+    html += "</table>";
+    list.innerHTML = html;
+  } catch (err) {
+    console.error("Error loading attendance", err);
+    document.getElementById("attendanceList").innerHTML = "<p>Failed to load attendance records</p>";
+  }
+}
+</script>
+
+</body>
+</html>
