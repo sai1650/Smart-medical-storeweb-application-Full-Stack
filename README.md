@@ -52,3 +52,4 @@ If you want, I can:
 - add a small `deploy.md` with Render / Railway step‑by‑step UI screenshots.
 
 Tell me which option you prefer and I’ll continue.
+i have used the 10000 data medicine in my database
