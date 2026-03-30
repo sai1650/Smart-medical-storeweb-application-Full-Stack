@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", (ploy ) => {
 
   // ===== SEARCH BUTTON =====
   const API = "https://devops-project-and-depolyment.onrender.com";
+  window.API = API; // global for other templates
   const btn = document.getElementById("searchBtn");
   if (btn) btn.addEventListener("click", searchMed);
 
@@ -50,7 +51,7 @@ async function login(){
   }
 
   try {
-    const res = await fetch("/login", {
+    const res = await fetch(`${API}/login`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ username, password })
@@ -144,7 +145,7 @@ async function registerStaff(){
   }
 
   try{
-    const res = await fetch('/register',{
+    const res = await fetch(`${API}/register`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ username, password, role: 'staff' })
@@ -201,7 +202,7 @@ async function sendOTP(){
   }
 
   try{
-    const res = await fetch('/forgot-password',{
+    const res = await fetch(`${API}/forgot-password`,{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ username })
     });
@@ -237,7 +238,7 @@ async function resetPassword(){
   }
 
   try{
-    const res = await fetch('/reset-password',{
+    const res = await fetch(`${API}/reset-password`,{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ username, otp, newPassword: newPass })
     });
@@ -275,7 +276,7 @@ async function searchMed(){
 
   try {
 
-    const r = await fetch("/search/" + encodeURIComponent(query));
+    const r = await fetch(`${API}/search/` + encodeURIComponent(query));
     const data = await r.json();
 
     if(!data || data.length === 0){
@@ -338,7 +339,7 @@ async function checkStock(){
 
   try {
 
-    const r = await fetch("/low-stock");
+    const r = await fetch(`${API}/low-stock`);
     const data = await r.json();
 
     if(!data || data.length === 0){
@@ -496,7 +497,7 @@ async function searchMedBilling(){
   }
 
   try {
-    const res = await fetch("/search/" + encodeURIComponent(query));
+    const res = await fetch(`${API}/search/` + encodeURIComponent(query));
     const data = await res.json();
     
     if(!data || data.length === 0){
@@ -619,7 +620,7 @@ async function checkout(){
   }
   
   try {
-    const res = await fetch("/billing", {
+    const res = await fetch(`${API}/billing`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ items })

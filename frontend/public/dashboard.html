@@ -148,6 +148,8 @@
 <script src="script.js"></script>
 
 <script>
+const API = "https://devops-project-and-depolyment.onrender.com";
+window.API = API;
 let currentUser = null;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -225,7 +227,7 @@ function showTab(tab) {
 
 async function loadStats(){
   try {
-    const r = await fetch("/analytics");
+    const r = await fetch(`${API}/analytics`);
     const data = await r.json();
     document.getElementById("totalMed").innerText = data.totalMedicines || 0;
     document.getElementById("totalStock").innerText = data.totalStock || 0;
@@ -237,7 +239,7 @@ async function loadStats(){
 async function loadProfile() {
   if (!currentUser) return;
   try {
-    const res = await fetch(`/staff/${currentUser._id}/profile`);
+    const res = await fetch(`${API}/staff/${currentUser._id}/profile`);
     const data = await res.json();
     document.getElementById("profileName").value = data.name || "";
     document.getElementById("profileEmail").value = data.email || "";

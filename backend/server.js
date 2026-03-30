@@ -8,7 +8,10 @@ const app = express();
 const path = require('path');
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: "https://devops-project-and-depolyment.vercel.app",
+  credentials: true
+}));
 // allow larger JSON payloads to support base64 images (photos)
 app.use(express.json({ limit: '5mb' }));
 
@@ -187,6 +190,11 @@ app.post("/register", async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: "Registration failed" });
   }
+});
+
+// HEALTHCHECK
+app.get("/health", (req,res) => {
+  res.json({ status: "ok", message: "Backend running" });
 });
 
 // SEARCH MEDICINE

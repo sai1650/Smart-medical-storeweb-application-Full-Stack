@@ -164,6 +164,9 @@ let currentUser = null;
 let salesChart = null;
 
 document.addEventListener("DOMContentLoaded", () => {
+  const API = "https://devops-project-and-depolyment.onrender.com";
+  window.API = API;
+
   currentUser = verifyRole("admin");
   if (!currentUser) return;
   
@@ -209,7 +212,7 @@ function showTab(tab) {
 
 async function loadDashboard() {
   try {
-    const res = await fetch("/analytics");
+    const res = await fetch(`${API}/analytics`);
     const data = await res.json();
     document.getElementById("dashTotalMed").innerText = data.totalMedicines || 0;
     document.getElementById("dashTotalStock").innerText = data.totalStock || 0;
@@ -221,7 +224,7 @@ async function loadDashboard() {
 
 async function loadStaff() {
   try {
-    const res = await fetch("/staff");
+    const res = await fetch(`${API}/staff`);
     const staff = await res.json();
     const list = document.getElementById("staffList");
     
@@ -348,7 +351,7 @@ async function initAnalyticsChart() {
 
 async function checkStock() {
   try {
-    const res = await fetch("/low-stock");
+    const res = await fetch(`${API}/low-stock`);
     const items = await res.json();
     const alert = document.getElementById("alert");
     
@@ -427,7 +430,7 @@ async function markStaffAttendance(status) {
     
     console.log("Request body:", JSON.stringify(reqBody));
     
-    const res = await fetch("/attendance/mark", {
+    const res = await fetch(`${API}/attendance/mark`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(reqBody)
@@ -466,7 +469,7 @@ async function markStaffAttendance(status) {
 
 async function loadTodayAttendanceSummary() {
   try {
-    const res = await fetch("/attendance-report/today");
+    const res = await fetch(`${API}/attendance-report/today`);
     
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
