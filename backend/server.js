@@ -9,7 +9,7 @@ const path = require('path');
 
 // Middleware
 app.use(cors({
-  origin: "https://devops-project-and-depolyment.vercel.app",
+  origin: true, // allow all origins (or set with ENV+whitelist in production)
   credentials: true
 }));
 // allow larger JSON payloads to support base64 images (photos)

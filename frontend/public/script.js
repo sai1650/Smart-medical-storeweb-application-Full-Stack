@@ -1,8 +1,9 @@
+const API = "https://devops-project-and-depolyment.onrender.com";
+window.API = API; // global for other templates
+
 document.addEventListener("DOMContentLoaded", (ploy ) => {
 
   // ===== SEARCH BUTTON =====
-  const API = "https://devops-project-and-depolyment.onrender.com";
-  window.API = API; // global for other templates
   const btn = document.getElementById("searchBtn");
   if (btn) btn.addEventListener("click", searchMed);
 
