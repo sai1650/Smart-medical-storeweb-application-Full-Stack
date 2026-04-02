@@ -19,12 +19,25 @@ app.use(express.json({ limit: '5mb' }));
 const frontendStatic = path.join(__dirname, '..', 'frontend', 'public');
 app.use(express.static(frontendStatic));
 
+// make root and all unmatched routes serve index.html for SPA
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendStatic, 'index.html'));
+});
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendStatic, 'index.html'));
+});
+
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/smart_medical_store")
-  .then(() => console.log("✅ MongoDB Connected"))
+const mongoUrl = process.env.MONGODB_URI || "mongodb://localhost:27017/smart_medical_store";
+mongoose.connect(mongoUrl, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+  .then(() => console.log("✅ MongoDB Connected", mongoUrl))
   .catch(err => {
-    console.log("❌ MongoDB Connection Error:", err.message);
-    console.log("Make sure MongoDB is running: mongod");
+    console.error("❌ MongoDB Connection Error:", err.message);
+    console.error("Please set MONGODB_URI to a reachable MongoDB URI (e.g., Atlas) when running in Render.");
+    process.exit(1);
   });
 
 // ==================== SCHEMAS ====================

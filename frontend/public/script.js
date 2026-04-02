@@ -1,7 +1,24 @@
-const API = "https://devops-project-and-depolyment.onrender.com";
+const API = "https://devops-project-and-deployment.onrender.com";
 window.API = API; // global for other templates
 
+// optional quick health check to detect sleeping backend on Render
+async function checkBackendHealth() {
+  try {
+    const res = await fetch(`${API}/health`);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const data = await res.json();
+    console.log("Backend health:", data);
+  } catch (err) {
+    console.warn("Backend health check failed (server may be sleeping or down):", err);
+    const alertArea = document.getElementById("result");
+    if (alertArea) {
+      alertArea.innerHTML = "⚠ Backend service unavailable or sleeping; refresh in a few seconds and retry.";
+    }
+  }
+}
+
 document.addEventListener("DOMContentLoaded", (ploy ) => {
+  checkBackendHealth();
 
   // ===== SEARCH BUTTON =====
   const btn = document.getElementById("searchBtn");
