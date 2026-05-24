@@ -12,3 +12,5 @@ services:
         sync: false
       - key: PORT
         value: 10000
+      - key: FRONTEND_ORIGINS
+        value: "https://darling-kringle-1b928d.netlify.app,https://devops-project-and-depolyment.onrender.com"
