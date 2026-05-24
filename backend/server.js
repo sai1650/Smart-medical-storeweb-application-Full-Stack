@@ -78,16 +78,48 @@ async function sendOtpSms(user, otp) {
 }
 
 // Middleware
-app.use(cors({
-  origin: true, // allow all origins (or set with ENV+whitelist in production)
-  credentials: true
-}));
+// CORS configuration - allow specific frontend origin(s) via env or allow all for local testing
+const rawFrontendOrigins = process.env.FRONTEND_ORIGINS; // comma-separated list, or undefined
+let allowedOrigins = null;
+if (rawFrontendOrigins && rawFrontendOrigins.trim()) {
+  allowedOrigins = rawFrontendOrigins.split(',').map(s => s.trim()).filter(Boolean);
+} else {
+  // default: allow all origins (use a specific origin in production for tighter security)
+  allowedOrigins = true;
+}
+
+const corsOptions = {
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser tools like curl
+    if (allowedOrigins === true || (Array.isArray(allowedOrigins) && allowedOrigins.indexOf(origin) !== -1)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 // allow larger JSON payloads to support base64 images (photos)
 app.use(express.json({ limit: '5mb' }));
 
 // Serve frontend static files (resolve absolute path)
 const frontendStatic = path.join(__dirname, '..', 'frontend', 'public');
 app.use(express.static(frontendStatic));
+
+// Health endpoint
+app.get('/health', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    status: 'ok',
+    time: new Date().toISOString(),
+    origin: req.get('origin') || null,
+    allowedOrigins: Array.isArray(allowedOrigins) ? allowedOrigins : (allowedOrigins === true ? 'all' : null)
+  });
+});
 
 function redactMongoUri(uri) {
   if (!uri) return '(missing)';
