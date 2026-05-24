@@ -92,9 +92,10 @@
 
           <button class="secondary-btn" onclick="checkStock()">Check Low Stock</button>
           <p id="alert"></p>
-        </div>
+          <script src="env.js"></script>
 
-      </section>
+
+          let currentUser = null;
     </div>
 
     <!-- ATTENDANCE TAB -->
@@ -145,11 +146,10 @@
   </main>
 </div>
 
+<script src="env.js"></script>
 <script src="script.js"></script>
 
 <script>
-const API = "https://devops-project-and-depolyment.onrender.com";
-window.API = API;
 let currentUser = null;
 
 document.addEventListener("DOMContentLoaded", () => {

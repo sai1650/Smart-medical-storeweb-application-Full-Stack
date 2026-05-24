@@ -1,6 +1,6 @@
 [build]
   publish = "frontend/public"
-  command = "echo 'No build step required for static frontend'"
+  command = "echo \"window.API_BASE_URL='${API_BASE_URL:-https://smart-medical-store-backend.onrender.com'}\" > frontend/public/env.js && echo 'Generated env.js and skipping further build steps'"
 
 [build.environment]
   NODE_VERSION = "18"

@@ -157,6 +157,7 @@
   </main>
 </div>
 
+<script src="env.js"></script>
 <script src="script.js"></script>
 
 <script>
@@ -164,12 +165,9 @@ let currentUser = null;
 let salesChart = null;
 
 document.addEventListener("DOMContentLoaded", () => {
-  const API = "https://devops-project-and-depolyment.onrender.com";
-  window.API = API;
-
   currentUser = verifyRole("admin");
   if (!currentUser) return;
-  
+
   document.getElementById("adminName").innerText = currentUser.name || "Admin";
   loadDashboard();
   loadStaff();
