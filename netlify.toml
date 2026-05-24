@@ -1,6 +1,12 @@
 [build]
-  publish = "frontend/public"
-  command = "echo \"window.API_BASE_URL='${API_BASE_URL:-https://smart-medical-store-backend.onrender.com'}\" > frontend/public/env.js && echo 'Generated env.js and skipping further build steps'"
+  base = "frontend"
+  publish = "dist"
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
