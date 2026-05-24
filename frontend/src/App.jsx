@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { API_BASE, request } from './api';
 
 function loadUser() {
@@ -22,6 +22,20 @@ function logout() {
   localStorage.removeItem('user');
 }
 
+function getPageMeta(pathname, role) {
+  if (pathname === '/dashboard') return { title: 'Staff Dashboard', subtitle: 'Medicine lookup, stock visibility, and fast store operations.' };
+  if (pathname === '/attendance') return { title: 'Attendance', subtitle: 'Track your check-in and check-out activity.' };
+  if (pathname === '/profile') return { title: 'Profile', subtitle: 'Update staff contact details used by the store.' };
+  if (pathname === '/scanner') return { title: 'Scanner', subtitle: 'Prepare barcode and quick search workflows.' };
+  if (pathname === '/billing') return { title: 'Billing', subtitle: 'Create invoices and manage cart totals.' };
+  if (pathname === '/admin') return { title: 'Admin Dashboard', subtitle: 'Inventory, staff, and store performance overview.' };
+  if (pathname === '/analytics') return { title: 'Analytics', subtitle: 'Business snapshot from the backend API.' };
+  if (pathname === '/admin-attendance') return { title: 'Attendance Control', subtitle: 'Mark staff attendance and review recent records.' };
+  return role === 'admin'
+    ? { title: 'Admin Dashboard', subtitle: 'Manage the pharmacy with a polished command center.' }
+    : { title: 'Staff Dashboard', subtitle: 'Everything a pharmacy staff member needs in one place.' };
+}
+
 function RequireAuth({ user, children }) {
   if (!user) return <Navigate to="/" replace />;
   return children;
@@ -34,6 +48,9 @@ function RequireRole({ user, role, children }) {
 }
 
 function Shell({ user, onLogout, children }) {
+  const location = useLocation();
+  const pageMeta = getPageMeta(location.pathname, user?.role);
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -41,8 +58,14 @@ function Shell({ user, onLogout, children }) {
           <span className="brand-mark">PF</span>
           <div>
             <div className="brand-title">PharmaFlow</div>
-            <div className="brand-subtitle">React frontend</div>
+            <div className="brand-subtitle">Pharmacy ops suite</div>
           </div>
+        </div>
+
+        <div className="sidebar-panel">
+          <span className="sidebar-label">Live status</span>
+          <strong>Backend connected</strong>
+          <p>{API_BASE}</p>
         </div>
 
         {user ? (
@@ -72,7 +95,29 @@ function Shell({ user, onLogout, children }) {
         )}
       </aside>
 
-      <main className="main-panel">{children}</main>
+      <main className="main-panel">
+        {user ? (
+          <header className="topbar card">
+            <div>
+              <p className="eyebrow">PharmaFlow medical store</p>
+              <h1>{pageMeta.title}</h1>
+              <p className="dashboard-text">{pageMeta.subtitle}</p>
+            </div>
+            <div className="topbar-actions">
+              <div className="mini-status">
+                <span className="status-dot" />
+                <div>
+                  <strong>Connected</strong>
+                  <p>{API_BASE}</p>
+                </div>
+              </div>
+              <button className="secondary-button" onClick={onLogout}>Logout</button>
+            </div>
+          </header>
+        ) : null}
+
+        {children}
+      </main>
     </div>
   );
 }
@@ -119,25 +164,37 @@ function LoginPage({ onLogin }) {
     <div className="hero-page">
       <section className="hero-copy">
         <p className="eyebrow">Smart medical store</p>
-        <h1>React frontend with the same backend API.</h1>
+        <h1>Modern pharmacy control panel.</h1>
         <p>
-          The frontend now uses React Router, a shared API helper, and environment-based backend URLs.
-          CORS is controlled from the backend with `FRONTEND_ORIGINS`.
+          Clean UI, real backend data, and role-based pages for staff and admin. This version is designed
+          to feel like a real client project instead of a demo page.
         </p>
-        <div className="status-card">
-          <span>API base</span>
-          <strong>{API_BASE}</strong>
+        <div className="hero-badges">
+          <span>Real-time inventory</span>
+          <span>Staff workflow</span>
+          <span>Billing & attendance</span>
+        </div>
+        <div className="hero-metrics">
+          <div>
+            <strong>24/7</strong>
+            <span>live store access</span>
+          </div>
+          <div>
+            <strong>Role</strong>
+            <span>based routing</span>
+          </div>
         </div>
       </section>
 
       <section className="card auth-card">
-        <h2>Sign in</h2>
+        <h2>Secure sign in</h2>
+        <p className="card-subtitle">Use your existing backend account to enter the dashboard.</p>
         <form onSubmit={handleLogin} className="stack">
           <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" autoComplete="username" />
           <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" autoComplete="current-password" />
-          <button type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
+          <button type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Enter dashboard'}</button>
         </form>
-        {message ? <p className="message error">{message}</p> : <p className="message">Use the existing backend users.</p>}
+        {message ? <p className="message error">{message}</p> : <p className="message">Connected to the existing backend.</p>}
       </section>
     </div>
   );
@@ -175,28 +232,49 @@ function DashboardPage() {
   }
 
   return (
-    <div className="content-grid">
-      <header className="page-header">
+    <div className="content-grid dashboard-layout">
+      <section className="dashboard-hero card">
         <div>
           <p className="eyebrow">Staff dashboard</p>
-          <h1>Medicine locator</h1>
+          <h1>Medicine locator and store overview</h1>
+          <p className="dashboard-text">
+            Search medicines instantly, verify rack placement, and monitor live stock from the same source of truth.
+          </p>
         </div>
-      </header>
+        <div className="hero-chip-stack">
+          <div className="hero-chip">
+            <span>Medicine count</span>
+            <strong>{summary.totalMedicines}</strong>
+          </div>
+          <div className="hero-chip">
+            <span>Total stock units</span>
+            <strong>{summary.totalStock}</strong>
+          </div>
+        </div>
+      </section>
 
       <div className="stats-row">
-        <div className="card stat-card"><span>Total Medicines</span><strong>{summary.totalMedicines}</strong></div>
-        <div className="card stat-card"><span>Total Stock</span><strong>{summary.totalStock}</strong></div>
+        <div className="card stat-card accent-card"><span>Fast lookup</span><strong>Search by name</strong></div>
+        <div className="card stat-card accent-card"><span>Store location</span><strong>Rack / Shelf</strong></div>
+        <div className="card stat-card accent-card"><span>Backend</span><strong>Live API data</strong></div>
       </div>
 
-      <section className="card">
+      <section className="card surface-card">
+        <div className="section-header">
+          <div>
+            <h2>Medicine search</h2>
+            <p>Type a product name and jump directly to the storage location.</p>
+          </div>
+        </div>
         <form className="search-row" onSubmit={handleSearch}>
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search medicine name" />
-          <button type="submit">Locate</button>
+          <button type="submit">Find medicine</button>
         </form>
         {error ? <p className="message error">{error}</p> : null}
         {result ? (
-          <div className="result-card">
+          <div className="result-card soft-glow">
             <div>
+              <p className="result-tag">Found medicine</p>
               <strong>{result.name}</strong>
               <p>Company: {result.company || '-'}</p>
             </div>
@@ -207,7 +285,12 @@ function DashboardPage() {
               <span>Shelf: {result.shelf || '-'}</span>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="empty-state">
+            <strong>No medicine selected yet</strong>
+            <p>Search a medicine to see its pricing, quantity, and shelf location.</p>
+          </div>
+        )}
       </section>
     </div>
   );
@@ -260,12 +343,13 @@ function AttendancePage({ user }) {
 
   return (
     <div className="content-grid">
-      <header className="page-header">
+      <section className="page-header card page-banner">
         <div>
           <p className="eyebrow">Attendance</p>
           <h1>Your attendance</h1>
+          <p className="dashboard-text">Quick check-in and check-out actions with a clean history view.</p>
         </div>
-      </header>
+      </section>
 
       {message ? <p className="message error">{message}</p> : null}
 
@@ -274,7 +358,7 @@ function AttendancePage({ user }) {
         <div className="card stat-card"><span>Last update</span><strong>{today?.timestamp ? new Date(today.timestamp).toLocaleString() : '-'}</strong></div>
       </div>
 
-      <section className="card">
+      <section className="card surface-card">
         <div className="page-actions">
           <button onClick={() => mark('checkin')} disabled={loading}>Check In</button>
           <button onClick={() => mark('checkout')} disabled={loading}>Check Out</button>
@@ -348,16 +432,17 @@ function ProfilePage({ user, onUserChange }) {
 
   return (
     <div className="content-grid">
-      <header className="page-header">
+      <section className="page-header card page-banner">
         <div>
           <p className="eyebrow">Profile</p>
           <h1>Your account</h1>
+          <p className="dashboard-text">Keep staff details clean and ready for billing, attendance, and messaging flows.</p>
         </div>
-      </header>
+      </section>
 
       {message ? <p className="message error">{message}</p> : null}
 
-      <section className="card">
+      <section className="card surface-card">
         <form className="stack" onSubmit={saveProfile}>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
@@ -406,16 +491,17 @@ function AdminAttendancePage() {
 
   return (
     <div className="content-grid">
-      <header className="page-header">
+      <section className="page-header card page-banner">
         <div>
           <p className="eyebrow">Attendance</p>
           <h1>Mark staff attendance</h1>
+          <p className="dashboard-text">Admin controls for daily check-in, check-out, and leave tracking.</p>
         </div>
-      </header>
+      </section>
 
       {message ? <p className="message error">{message}</p> : null}
 
-      <section className="card">
+      <section className="card surface-card">
         <div className="stack">
           <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
             <option value="">Select staff member</option>
@@ -431,7 +517,7 @@ function AdminAttendancePage() {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card surface-card">
         <h2>Recent records</h2>
         <div className="table-wrap">
           <table>
@@ -524,17 +610,22 @@ function BillingPage() {
   }
 
   return (
-    <div className="content-grid">
-      <header className="page-header">
+    <div className="content-grid billing-layout">
+      <section className="page-header card page-banner billing-banner">
         <div>
           <p className="eyebrow">Billing</p>
           <h1>Cart and invoice</h1>
+          <p className="dashboard-text">Search medicine, build a cart, and generate a billing summary in one place.</p>
         </div>
-      </header>
+        <div className="hero-chip">
+          <span>Subtotal</span>
+          <strong>₹{subtotal}</strong>
+        </div>
+      </section>
 
       {message ? <p className="message error">{message}</p> : null}
 
-      <section className="card">
+      <section className="card surface-card">
         <form className="search-row" onSubmit={searchMedicine}>
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search medicine" />
           <button type="submit">Search</button>
@@ -550,8 +641,13 @@ function BillingPage() {
         ) : null}
       </section>
 
-      <section className="card">
-        <h2>Cart</h2>
+      <section className="card surface-card">
+        <div className="section-header">
+          <div>
+            <h2>Cart</h2>
+            <p>Live item totals before checkout.</p>
+          </div>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
@@ -587,7 +683,7 @@ function BillingPage() {
       </section>
 
       {invoice ? (
-        <section className="card">
+        <section className="card surface-card">
           <h2>Invoice</h2>
           <pre className="json-box">{JSON.stringify(invoice, null, 2)}</pre>
         </section>
@@ -614,13 +710,14 @@ function AdminPage() {
   }, []);
 
   return (
-    <div className="content-grid">
-      <header className="page-header">
+    <div className="content-grid admin-layout">
+      <section className="page-header card page-banner">
         <div>
           <p className="eyebrow">Admin panel</p>
           <h1>Operations overview</h1>
+          <p className="dashboard-text">Monitor medicines, stock, and staff from a polished command center.</p>
         </div>
-      </header>
+      </section>
 
       {error ? <p className="message error">{error}</p> : null}
 
@@ -630,8 +727,13 @@ function AdminPage() {
         <div className="card stat-card"><span>Total Staff</span><strong>{analytics.totalStaff}</strong></div>
       </div>
 
-      <section className="card">
-        <h2>Staff</h2>
+      <section className="card surface-card">
+        <div className="section-header">
+          <div>
+            <h2>Staff</h2>
+            <p>Active pharmacy staff roster and contact details.</p>
+          </div>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
@@ -662,13 +764,14 @@ function AdminPage() {
 function ScannerPage() {
   return (
     <div className="content-grid">
-      <header className="page-header">
+      <section className="page-header card page-banner">
         <div>
           <p className="eyebrow">Scanner</p>
           <h1>Barcode lookup</h1>
+          <p className="dashboard-text">Ready for a barcode scanner or a simple search input later.</p>
         </div>
-      </header>
-      <section className="card">
+      </section>
+      <section className="card surface-card">
         <p>This route is ready for a scanner component if you want to add one later.</p>
       </section>
     </div>
@@ -687,14 +790,15 @@ function AnalyticsPage() {
 
   return (
     <div className="content-grid">
-      <header className="page-header">
+      <section className="page-header card page-banner">
         <div>
           <p className="eyebrow">Analytics</p>
           <h1>Sales and inventory snapshot</h1>
+          <p className="dashboard-text">A compact view of the backend analytics response for quick business review.</p>
         </div>
-      </header>
+      </section>
       {error ? <p className="message error">{error}</p> : null}
-      <section className="card">
+      <section className="card surface-card">
         <pre className="json-box">{JSON.stringify(analytics || {}, null, 2)}</pre>
       </section>
     </div>
