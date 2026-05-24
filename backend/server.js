@@ -161,21 +161,32 @@ function normalizeMongoUri(uri) {
 }
 
 // MongoDB Connection
-const mongoUrl = (process.env.MONGODB_URI || "mongodb://localhost:27017/smart_medical_store")
-  .trim()
-  .replace(/^['"]|['"]$/g, '');
-const validatedMongoUrl = validateMongoUri(mongoUrl);
-const normalizedMongoUrl = normalizeMongoUri(validatedMongoUrl);
-console.log('ℹ️ MongoDB URI:', redactMongoUri(normalizedMongoUrl));
+const mongoEnv = (process.env.MONGODB_URI || '').trim().replace(/^['"]|['"]$/g, '');
+if (!mongoEnv) {
+  console.warn('⚠️ MONGODB_URI not set. Skipping DB connection — some endpoints will be unavailable.');
+} else {
+  try {
+    const validatedMongoUrl = validateMongoUri(mongoEnv);
+    const normalizedMongoUrl = normalizeMongoUri(validatedMongoUrl);
+    console.log('ℹ️ MongoDB URI:', redactMongoUri(normalizedMongoUrl));
 
-mongoose.connect(normalizedMongoUrl)
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch(err => {
-    console.error("❌ MongoDB Connection Error:", err.message);
-    console.error("Check that MONGODB_URI is a full Atlas connection string and that all options have values.");
-    console.error('Parsed MongoDB URI:', redactMongoUri(normalizedMongoUrl));
-    process.exit(1);
-  });
+    (async () => {
+      try {
+        await mongoose.connect(normalizedMongoUrl);
+        console.log('✅ MongoDB Connected');
+      } catch (err) {
+        console.error('❌ MongoDB Connection Error:', err.message);
+        console.error('Check that MONGODB_URI is a full Atlas connection string and that all options have values.');
+        console.error('Parsed MongoDB URI:', redactMongoUri(normalizedMongoUrl));
+        // Do not exit; keep the server running so health and diagnostics remain available.
+      }
+    })();
+  } catch (err) {
+    console.error('❌ Invalid MONGODB_URI:', err.message);
+    console.error('Provided value:', redactMongoUri(mongoEnv));
+    // Continue without exiting so /health and CORS remain available to help debugging
+  }
+}
 
 // ==================== SCHEMAS ====================
 
