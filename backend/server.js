@@ -113,21 +113,35 @@ function validateMongoUri(uri) {
   return uri;
 }
 
+function normalizeMongoUri(uri) {
+  const cleaned = uri.trim().replace(/^['"]|['"]$/g, '');
+  const parsed = new URL(cleaned);
+  const params = new URLSearchParams(parsed.search);
+
+  for (const [key, value] of [...params.entries()]) {
+    if (!value || !value.trim()) {
+      params.delete(key);
+    }
+  }
+
+  parsed.search = params.toString() ? `?${params.toString()}` : '';
+  return parsed.toString();
+}
+
 // MongoDB Connection
 const mongoUrl = (process.env.MONGODB_URI || "mongodb://localhost:27017/smart_medical_store")
   .trim()
   .replace(/^['"]|['"]$/g, '');
 const validatedMongoUrl = validateMongoUri(mongoUrl);
-console.log('ℹ️ MongoDB URI:', redactMongoUri(validatedMongoUrl));
+const normalizedMongoUrl = normalizeMongoUri(validatedMongoUrl);
+console.log('ℹ️ MongoDB URI:', redactMongoUri(normalizedMongoUrl));
 
-mongoose.connect(validatedMongoUrl, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(normalizedMongoUrl)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => {
     console.error("❌ MongoDB Connection Error:", err.message);
     console.error("Check that MONGODB_URI is a full Atlas connection string and that all options have values.");
+    console.error('Parsed MongoDB URI:', redactMongoUri(normalizedMongoUrl));
     process.exit(1);
   });
 
