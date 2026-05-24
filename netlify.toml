@@ -1,0 +1,6 @@
+[build]
+  publish = "frontend/public"
+  command = "echo 'No build step required for static frontend'"
+
+[build.environment]
+  NODE_VERSION = "18"

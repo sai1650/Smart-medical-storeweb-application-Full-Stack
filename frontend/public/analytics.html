@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function initAnalytics() {
   try {
-    const res = await fetch('/analytics');
+    const res = await fetch(`${API}/analytics`);
     const stat = await res.json();
 
     // Update KPIs
@@ -155,7 +155,7 @@ function initMedicineChart(stat) {
 
 async function loadStaffAnalytics() {
   try {
-    const res = await fetch('/staff');
+    const res = await fetch(`${API}/staff`);
     const staff = await res.json();
     const container = document.getElementById('staffAnalytics');
 

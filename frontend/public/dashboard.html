@@ -277,7 +277,7 @@ async function updateProfile() {
     const payload = { name, email, phone };
     if (photo) payload.photo = photo;
 
-    const res = await fetch(`/staff/${currentUser._id}/profile`, {
+    const res = await fetch(`${API}/staff/${currentUser._id}/profile`, {
       method: "PUT",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(payload)
@@ -316,7 +316,7 @@ function startAttendanceListener() {
   const intervalId = setInterval(async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`/attendance/${currentUser._id}/today`);
+      const res = await fetch(`${API}/attendance/${currentUser._id}/today`);
       const data = await res.json();
       
       if (data.marked) {
@@ -408,7 +408,7 @@ async function loadAttendance() {
   if (!currentUser) return;
   
   try {
-    const res = await fetch(`/attendance/${currentUser._id}`);
+    const res = await fetch(`${API}/attendance/${currentUser._id}`);
     const records = await res.json();
     const list = document.getElementById("attendanceList");
     

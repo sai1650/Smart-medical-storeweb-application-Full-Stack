@@ -1,7 +1,11 @@
-const API = "https://devops-project-and-deployment.onrender.com";
+const API = (typeof window !== 'undefined' && window.API_BASE_URL)
+  ? window.API_BASE_URL.replace(/\/$/, '')
+  : ((typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+    ? 'http://localhost:5000'
+    : 'https://smart-medical-store-backend.onrender.com');
 window.API = API; // global for other templates
 
-// optional quick health check to detect sleeping backend on Render
+// optional quick health check to detect sleeping backend on Render/local
 async function checkBackendHealth() {
   try {
     const res = await fetch(`${API}/health`);
@@ -19,6 +23,11 @@ async function checkBackendHealth() {
 
 document.addEventListener("DOMContentLoaded", (ploy ) => {
   checkBackendHealth();
+
+  // Load dashboard data if on dashboard page
+  if (document.getElementById('totalMed')) {
+    loadDashboard();
+  }
 
   // ===== SEARCH BUTTON =====
   const btn = document.getElementById("searchBtn");
@@ -75,7 +84,12 @@ async function login(){
       body: JSON.stringify({ username, password })
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      msg.innerText = `Server error: ${data.message || res.statusText || res.status}`;
+      return;
+    }
 
     if (data.role === "admin") {
       sessionStorage.setItem("user", JSON.stringify(data));
@@ -90,7 +104,31 @@ async function login(){
     }
 
   } catch (err) {
-    msg.innerText = "Server error. Please try again.";
+    msg.innerText = `Server error: ${err.message || err}`;
+  }
+}
+
+// ================= LOAD DASHBOARD =================
+async function loadDashboard() {
+  try {
+    // Use the summary endpoint for quick totals
+    const res = await fetch(`${API}/medicines/summary`);
+    if (!res.ok) {
+      console.error('API error:', res.status, res.statusText);
+      return;
+    }
+    const data = await res.json();
+    console.log('Dashboard data:', data);
+    
+    // Update dashboard elements
+    const totalMedEl = document.getElementById('totalMed');
+    const totalStockEl = document.getElementById('totalStock');
+    
+    if (totalMedEl) totalMedEl.innerText = data.totalMedicines || 0;
+    if (totalStockEl) totalStockEl.innerText = data.totalStock || 0;
+    
+  } catch (err) {
+    console.error('Error loading dashboard:', err);
   }
 }
 
@@ -213,7 +251,9 @@ function toggleReset(show){
 async function sendOTP(){
   const username = document.getElementById('forgot_username').value.trim();
   const msgEl = document.getElementById('forgotMsg');
+  const statusEl = document.getElementById('forgotStatus');
   if(msgEl) msgEl.innerText = '';
+  if(statusEl) statusEl.innerText = '';
   if(!username){
     if(msgEl) msgEl.innerText = 'Provide your username';
     return;
@@ -230,8 +270,17 @@ async function sendOTP(){
       return;
     }
 
-    // show otp to user for now (in production this would go to email/sms)
-    if(msgEl) msgEl.innerText = data.message + (data.otp ? ` (OTP: ${data.otp})` : '');
+    const successMessage = data.message || 'OTP generated';
+    const visibleOtp = data.otp ? ` OTP: ${data.otp}` : '';
+
+    if(statusEl) {
+      statusEl.innerText = successMessage + visibleOtp;
+    }
+
+    if (data.warning && msgEl) {
+      msgEl.innerText = data.warning;
+    }
+
     // switch to reset form
     setTimeout(() => {
       document.getElementById('reset_username').value = username;
@@ -293,8 +342,15 @@ async function searchMed(){
   resultDiv.innerHTML = "🔍 Searching...";
 
   try {
+    console.log('Searching medicine:', query, 'using API:', API);
 
     const r = await fetch(`${API}/search/` + encodeURIComponent(query));
+    if (!r.ok) {
+      const errorData = await r.json().catch(() => null);
+      resultDiv.innerHTML = `<p>⚠ Server error: ${errorData?.message || r.statusText || r.status}</p>`;
+      return;
+    }
+
     const data = await r.json();
 
     if(!data || data.length === 0){
@@ -303,8 +359,18 @@ async function searchMed(){
       return;
     }
 
-    // Show first match
-    const med = data[0];
+    // Prefer a result that includes rack/shelf if available
+    const med = data.find(item => item.rack && item.shelf) || data[0];
+    const rack = (med.rack || '').toString().trim();
+    const shelf = (med.shelf || '').toString().trim();
+    const hasLocation = !!(rack && shelf);
+    const locationString = hasLocation
+      ? `${rack}-${shelf}`
+      : rack || shelf
+        ? `${rack}${rack && shelf ? '-' : ''}${shelf}`
+        : 'Unknown';
+
+    console.log('search results', data, 'selected med', med, 'location', locationString, 'hasLocation', hasLocation);
 
     resultDiv.innerHTML = `
       <div style="padding:10px;">
@@ -312,15 +378,20 @@ async function searchMed(){
         <p><b>Price:</b> ₹${med.price}</p>
         <p><b>Stock:</b> ${med.quantity}</p>
         <p><b>Location:</b> 
-          <span class="badge">${med.rack}-${med.shelf}</span>
+          <span class="badge">${locationString}</span>
         </p>
       </div>
     `;
 
-    highlightRack(med.rack, med.shelf);
+    if (hasLocation) {
+      highlightRack(med.rack, med.shelf);
+    } else {
+      clearHighlights();
+    }
 
   } catch (err){
-    resultDiv.innerHTML = "<p>⚠ Server error</p>";
+    console.error('Medicine search failed:', err);
+    resultDiv.innerHTML = `<p>⚠ Server error: ${err.message || err}</p>`;
   }
 }
 
@@ -329,6 +400,10 @@ async function searchMed(){
 function highlightRack(rack, shelf){
 
   clearHighlights();
+
+  if (!rack || !shelf) {
+    return;
+  }
 
   const boxId = rack.trim() + shelf.trim();  // R1 + S3 → R1S3
   const slot = document.getElementById(boxId);
@@ -395,9 +470,27 @@ async function loadInventory() {
   if (!list) return;
   list.innerHTML = 'Loading…';
   try {
-    const res = await fetch('/medicines');
-    const meds = await res.json();
+    // Get first page (50 items per page)
+    const res = await fetch(`${API}/medicines?page=1&limit=50`);
+    const result = await res.json();
+    const meds = result.data || [];
+    
+    // Show pagination info
+    const paginationInfo = `<p style="text-align:center;color:#666;">Showing ${meds.length} of ${result.total} medicines (Page ${result.page}/${result.totalPages})</p>`;
+    
     renderInventoryTable(meds);
+    
+    // Add pagination info at bottom
+    const listParent = list.parentElement;
+    if (listParent) {
+      let paginationDiv = listParent.querySelector('.pagination-info');
+      if (!paginationDiv) {
+        paginationDiv = document.createElement('div');
+        paginationDiv.className = 'pagination-info';
+        listParent.appendChild(paginationDiv);
+      }
+      paginationDiv.innerHTML = paginationInfo;
+    }
   } catch (err) {
     list.innerHTML = '<p>Error loading inventory</p>';
   }
@@ -447,7 +540,7 @@ function promptRestock(id,name,current) {
 
 async function restockMedicine(id, amount) {
   try {
-    const res = await fetch(`/medicines/${id}/increase`, {
+    const res = await fetch(`${API}/medicines/${id}/increase`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ amount })
     });
@@ -482,7 +575,7 @@ async function submitNewMedicine(e){
   const shelf = document.getElementById('med_shelf').value.trim();
   const msg = document.getElementById('addMedMsg');
   try{
-    const res = await fetch('/medicines', {
+    const res = await fetch(`${API}/medicines`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ name, company, price, quantity, rack, shelf })
     });
@@ -763,5 +856,42 @@ function closeBill(){
   const billInvoiceDiv = document.getElementById("billInvoice");
   if(billInvoiceDiv) {
     billInvoiceDiv.classList.remove("show");
+  }
+}
+
+// ================= TAB NAVIGATION =================
+function showTab(tabName) {
+  // Hide all tabs
+  const tabs = document.querySelectorAll('.tab-content');
+  tabs.forEach(tab => tab.style.display = 'none');
+  
+  // Remove active class from all buttons
+  const buttons = document.querySelectorAll('.tab-btn');
+  buttons.forEach(btn => btn.classList.remove('active'));
+  
+  // Show selected tab
+  const selectedTab = document.getElementById(tabName + 'Tab');
+  if (selectedTab) {
+    selectedTab.style.display = 'block';
+  }
+  
+  // Add active class to clicked button
+  event.target.classList.add('active');
+  
+  // Update page title
+  const pageTitle = document.getElementById('pageTitle');
+  if (pageTitle) {
+    if (tabName === 'medicine') {
+      pageTitle.innerText = '📦 Staff Dashboard';
+    } else if (tabName === 'attendance') {
+      pageTitle.innerText = '📋 Attendance';
+    } else if (tabName === 'profile') {
+      pageTitle.innerText = '👤 My Profile';
+    }
+  }
+  
+  // Load dashboard data if showing medicine tab
+  if (tabName === 'medicine' && window.loadDashboard) {
+    loadDashboard();
   }
 }

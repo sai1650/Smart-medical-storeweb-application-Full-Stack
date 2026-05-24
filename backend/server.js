@@ -1,11 +1,81 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-require("dotenv").config();
+const nodemailer = require("nodemailer");
+const path = require('path');
+require("dotenv").config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 
-const path = require('path');
+const emailConfig = {
+  host: process.env.EMAIL_HOST,
+  port: parseInt(process.env.EMAIL_PORT || "587", 10),
+  secure: process.env.EMAIL_SECURE === 'true',
+  auth: process.env.EMAIL_USER && process.env.EMAIL_PASS ? {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  } : undefined
+};
+
+const emailTransporter = emailConfig.host ? nodemailer.createTransport(emailConfig) : null;
+const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@smartmedicalstore.com';
+
+const twilioConfig = {
+  accountSid: process.env.TWILIO_ACCOUNT_SID,
+  authToken: process.env.TWILIO_AUTH_TOKEN,
+  from: process.env.TWILIO_FROM
+};
+
+async function sendOtpEmail(user, otp) {
+  if (!emailTransporter || !user.email) return false;
+
+  const subject = 'Your OTP for password reset';
+  const text = `Hi ${user.name || user.username},\n\nYour OTP for password reset is ${otp}. It expires in 5 minutes.\n\nIf you did not request this, please ignore this message.`;
+  const html = `
+    <p>Hi ${user.name || user.username},</p>
+    <p>Your OTP for password reset is <strong>${otp}</strong>.</p>
+    <p>This code expires in 5 minutes.</p>
+    <p>If you did not request this, ignore this email.</p>
+  `;
+
+  await emailTransporter.sendMail({
+    from: emailFrom,
+    to: user.email,
+    subject,
+    text,
+    html
+  });
+  return true;
+}
+
+async function sendOtpSms(user, otp) {
+  if (!twilioConfig.accountSid || !twilioConfig.authToken || !twilioConfig.from || !user.phone) {
+    return false;
+  }
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioConfig.accountSid}/Messages.json`;
+  const params = new URLSearchParams({
+    To: user.phone,
+    From: twilioConfig.from,
+    Body: `Your OTP for password reset is ${otp}. It expires in 5 minutes.`
+  });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${twilioConfig.accountSid}:${twilioConfig.authToken}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Twilio send error: ${response.status} ${errorText}`);
+  }
+
+  return true;
+}
 
 // Middleware
 app.use(cors({
@@ -19,16 +89,10 @@ app.use(express.json({ limit: '5mb' }));
 const frontendStatic = path.join(__dirname, '..', 'frontend', 'public');
 app.use(express.static(frontendStatic));
 
-// make root and all unmatched routes serve index.html for SPA
-app.get('/', (req, res) => {
-  res.sendFile(path.join(frontendStatic, 'index.html'));
-});
-app.get('*', (req, res) => {
-  res.sendFile(path.join(frontendStatic, 'index.html'));
-});
-
 // MongoDB Connection
-const mongoUrl = process.env.MONGODB_URI || "mongodb://localhost:27017/smart_medical_store";
+const mongoUrl = (process.env.MONGODB_URI || "mongodb://localhost:27017/smart_medical_store")
+  .trim()
+  .replace(/^['"]|['"]$/g, '');
 mongoose.connect(mongoUrl, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -139,8 +203,49 @@ app.post("/forgot-password", async (req, res) => {
     user.otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // valid for 5min
     await user.save();
 
-    // In real app we would send email or SMS. For now return it for dev.
-    res.json({ success: true, message: "OTP generated", otp });
+    const channels = [];
+    let sendFailure = false;
+    let sendWarnings = [];
+
+    if (user.email && emailTransporter) {
+      try {
+        await sendOtpEmail(user, otp);
+        channels.push('email');
+      } catch (err) {
+        console.error('OTP email send failed:', err);
+        sendFailure = true;
+        sendWarnings.push('Email send failed');
+      }
+    }
+
+    if (user.phone && twilioConfig.accountSid && twilioConfig.authToken && twilioConfig.from) {
+      try {
+        await sendOtpSms(user, otp);
+        channels.push('SMS');
+      } catch (err) {
+        console.error('OTP SMS send failed:', err);
+        sendFailure = true;
+        sendWarnings.push('SMS send failed');
+      }
+    }
+
+    const shouldReturnOtp = process.env.RETURN_OTP_IN_RESPONSE === 'true' || channels.length === 0;
+    const response = {
+      success: true,
+      message: channels.length > 0
+        ? `OTP sent via ${channels.join(' and ')}.`
+        : 'OTP generated. No email or SMS transport is configured or user contact info is missing.',
+    };
+
+    if (shouldReturnOtp) {
+      response.otp = otp;
+    }
+
+    if (sendFailure) {
+      response.warning = sendWarnings.join('; ');
+    }
+
+    res.json(response);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -217,11 +322,26 @@ app.get("/search/:name", async (req, res) => {
     const medicines = await Medicine.find({
       name: { $regex: name, $options: "i" }
     }).limit(20);
-    
+
+    const hasLocation = medicines.some(m => m.rack && m.shelf);
+    if (medicines.length > 0 && !hasLocation) {
+      const baseName = name.split(/[\s,-]+/)[0];
+      if (baseName && baseName.length > 2) {
+        const fallback = await Medicine.find({
+          name: { $regex: `^${baseName}`, $options: "i" },
+          rack: { $exists: true, $ne: "" },
+          shelf: { $exists: true, $ne: "" }
+        }).limit(20);
+        if (fallback.length > 0) {
+          return res.json(fallback);
+        }
+      }
+    }
+
     res.json(medicines);
   } catch (err) {
     console.error("Search error:", err);
-    res.status(500).json([]);
+    res.status(500).json({ message: "Server error during search" });
   }
 });
 
@@ -360,11 +480,56 @@ app.get("/company/:name", async (req, res) => {
 // Get all medicines (with optional limit)
 app.get('/medicines', async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50; // default 50 per page
+    const skip = (page - 1) * limit;
+    
+    const meds = await Medicine.find()
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit);
+    
+    const total = await Medicine.countDocuments();
+    
+    res.json({
+      data: meds,
+      total: total,
+      page: page,
+      limit: limit,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    console.error('Fetch medicines error', err);
+    res.status(500).json({ data: [], total: 0, page: 1, limit: 50, totalPages: 0 });
+  }
+});
+
+// Get every medicine without pagination
+app.get('/medicines/all', async (req, res) => {
+  try {
     const meds = await Medicine.find().sort({ name: 1 });
     res.json(meds);
   } catch (err) {
-    console.error('Fetch medicines error', err);
-    res.status(500).json([]);
+    console.error('Fetch all medicines error', err);
+    res.status(500).json({ message: 'Failed to fetch all medicines' });
+  }
+});
+
+// Get summary/analytics
+app.get('/medicines/summary', async (req, res) => {
+  try {
+    const total = await Medicine.countDocuments();
+    const totalStock = await Medicine.aggregate([
+      { $group: { _id: null, totalQty: { $sum: '$quantity' } } }
+    ]);
+    
+    res.json({
+      totalMedicines: total,
+      totalStock: totalStock[0]?.totalQty || 0
+    });
+  } catch (err) {
+    console.error('Summary error', err);
+    res.status(500).json({ totalMedicines: 0, totalStock: 0 });
   }
 });
 
@@ -747,6 +912,15 @@ app.get("/debug-attendance", async (req, res) => {
 
 // Seed after connection
 setTimeout(() => seedDatabase(), 1000);
+
+// ==================== CATCH-ALL ROUTES (MUST BE LAST) ====================
+// make root and all unmatched routes serve index.html for SPA
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendStatic, 'index.html'));
+});
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendStatic, 'index.html'));
+});
 
 // START SERVER (only for local development)
 if (require.main === module) {

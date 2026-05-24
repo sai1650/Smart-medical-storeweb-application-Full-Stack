@@ -6,14 +6,14 @@ This README explains an easy, reliable deployment approach.
 
 ## Recommended deployment (separate services)
 
-1. Deploy frontend to Vercel (static):
-   - In Vercel, create a new project from this GitHub repo.
-   - Set the **Root Directory** to the project root (or leave default), and configure the **Output Directory** to `frontend/public`.
-   - Framework Preset: `Other` / Static.
+1. Deploy frontend to Netlify (static):
+   - In Netlify, create a new site from this GitHub repo.
+   - Set the **Publish directory** to `frontend/public`.
+   - No build command is required for the current static frontend.
 
-2. Deploy backend to a Node host (Render / Railway / Heroku / Fly):
+2. Deploy backend to Render:
    - Create a new Web Service and set the Root Directory to `backend`.
-   - Build Command: `npm install`
+   - Build Command: `npm ci`
    - Start Command: `node server.js` (or `npm start`)
    - Add environment variable `MONGODB_URI` with your MongoDB Atlas connection string.
    - Ensure CORS is allowed (the backend already uses `cors()` by default).
@@ -23,8 +23,9 @@ This README explains an easy, reliable deployment approach.
    - Create a database user and network access (allow your host IP or 0.0.0.0/0 for testing).
    - Copy the connection string and set it as `MONGODB_URI` on your backend host and locally in a `.env` file.
 
-4. Update frontend API base URL (optional):
-   - If frontend and backend are on different domains, replace fetch calls or set a base constant to the backend URL (e.g., `https://api.example.com`).
+4. Frontend API base URL:
+   - The frontend defaults to `https://smart-medical-store-backend.onrender.com` in production.
+   - If you rename the Render service, update `frontend/public/script.js` or set `window.API_BASE_URL` before loading `script.js`.
 
 ## Quick local start
 
@@ -32,14 +33,16 @@ This README explains an easy, reliable deployment approach.
 
 ```bash
 cd backend
-npm install
+npm ci
 # set MONGODB_URI in .env or use local mongodb
 node server.js
 ```
 
+From the repo root, `npm run build` installs the backend dependencies and `npm start` launches the backend server.
+
 ## Why separate deployments
 
-- Vercel is optimized for static sites and serverless functions. Your current backend expects a long‑running Node server and a persistent MongoDB connection, which is better hosted on Render, Railway, or a cloud VM.
+- Netlify is a good fit for the static frontend, while Render handles the long‑running Node backend and persistent MongoDB connection.
 - Splitting responsibilities makes configuration and scaling easier.
 
 ## Small fixes applied
@@ -47,9 +50,9 @@ node server.js
 
 ---
 If you want, I can:
-- add a `vercel.json` to deploy only the frontend automatically,
-- refactor the backend into Vercel serverless functions (more work), or
-- add a small `deploy.md` with Render / Railway step‑by‑step UI screenshots.
+- add a `netlify.toml`/`render.yaml` tweak for your exact service names,
+- add a small `deploy.md` with Render / Netlify step‑by‑step UI screenshots, or
+- help you point the frontend at a custom Render URL if you rename the backend service.
 
 Tell me which option you prefer and I’ll continue.
 i have used the 10000 data medicine in my database
