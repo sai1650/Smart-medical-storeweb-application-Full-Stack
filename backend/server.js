@@ -89,18 +89,45 @@ app.use(express.json({ limit: '5mb' }));
 const frontendStatic = path.join(__dirname, '..', 'frontend', 'public');
 app.use(express.static(frontendStatic));
 
+function redactMongoUri(uri) {
+  if (!uri) return '(missing)';
+
+  return uri
+    .replace(/:\/\/([^:]+):([^@]+)@/, '://$1:***@')
+    .replace(/([?&][^=]+)=([^&]+)/g, '$1=***');
+}
+
+function validateMongoUri(uri) {
+  if (!uri) {
+    throw new Error('MONGODB_URI is missing');
+  }
+
+  if (!/^mongodb(\+srv)?:\/\//i.test(uri)) {
+    throw new Error('MONGODB_URI must start with mongodb:// or mongodb+srv://');
+  }
+
+  if (/[?&][^=]+=$/.test(uri) || /[?&][^=]+=&/.test(uri) || /[?&]$/.test(uri)) {
+    throw new Error('MONGODB_URI contains an option without a value');
+  }
+
+  return uri;
+}
+
 // MongoDB Connection
 const mongoUrl = (process.env.MONGODB_URI || "mongodb://localhost:27017/smart_medical_store")
   .trim()
   .replace(/^['"]|['"]$/g, '');
-mongoose.connect(mongoUrl, {
+const validatedMongoUrl = validateMongoUri(mongoUrl);
+console.log('ℹ️ MongoDB URI:', redactMongoUri(validatedMongoUrl));
+
+mongoose.connect(validatedMongoUrl, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-  .then(() => console.log("✅ MongoDB Connected", mongoUrl))
+  .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => {
     console.error("❌ MongoDB Connection Error:", err.message);
-    console.error("Please set MONGODB_URI to a reachable MongoDB URI (e.g., Atlas) when running in Render.");
+    console.error("Check that MONGODB_URI is a full Atlas connection string and that all options have values.");
     process.exit(1);
   });
 
