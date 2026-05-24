@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { API_BASE, request } from './api';
+import { request } from './api';
 
 function loadUser() {
   const stored = localStorage.getItem('user');
@@ -29,7 +29,7 @@ function getPageMeta(pathname, role) {
   if (pathname === '/scanner') return { title: 'Scanner', subtitle: 'Prepare barcode and quick search workflows.' };
   if (pathname === '/billing') return { title: 'Billing', subtitle: 'Create invoices and manage cart totals.' };
   if (pathname === '/admin') return { title: 'Admin Dashboard', subtitle: 'Inventory, staff, and store performance overview.' };
-  if (pathname === '/analytics') return { title: 'Analytics', subtitle: 'Business snapshot from the backend API.' };
+  if (pathname === '/analytics') return { title: 'Analytics', subtitle: 'Business snapshot from store records and operations.' };
   if (pathname === '/admin-attendance') return { title: 'Attendance Control', subtitle: 'Mark staff attendance and review recent records.' };
   return role === 'admin'
     ? { title: 'Admin Dashboard', subtitle: 'Manage the pharmacy with a polished command center.' }
@@ -60,12 +60,6 @@ function Shell({ user, onLogout, children }) {
             <div className="brand-title">PharmaFlow</div>
             <div className="brand-subtitle">Pharmacy ops suite</div>
           </div>
-        </div>
-
-        <div className="sidebar-panel">
-          <span className="sidebar-label">Live status</span>
-          <strong>Backend connected</strong>
-          <p>{API_BASE}</p>
         </div>
 
         {user ? (
@@ -104,13 +98,6 @@ function Shell({ user, onLogout, children }) {
               <p className="dashboard-text">{pageMeta.subtitle}</p>
             </div>
             <div className="topbar-actions">
-              <div className="mini-status">
-                <span className="status-dot" />
-                <div>
-                  <strong>Connected</strong>
-                  <p>{API_BASE}</p>
-                </div>
-              </div>
               <button className="secondary-button" onClick={onLogout}>Logout</button>
             </div>
           </header>
@@ -194,7 +181,7 @@ function LoginPage({ onLogin }) {
           <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" autoComplete="current-password" />
           <button type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Enter dashboard'}</button>
         </form>
-        {message ? <p className="message error">{message}</p> : <p className="message">Connected to the existing backend.</p>}
+        {message ? <p className="message error">{message}</p> : <p className="message">Use your existing account to enter the store dashboard.</p>}
       </section>
     </div>
   );
@@ -256,7 +243,7 @@ function DashboardPage() {
       <div className="stats-row">
         <div className="card stat-card accent-card"><span>Fast lookup</span><strong>Search by name</strong></div>
         <div className="card stat-card accent-card"><span>Store location</span><strong>Rack / Shelf</strong></div>
-        <div className="card stat-card accent-card"><span>Backend</span><strong>Live API data</strong></div>
+        <div className="card stat-card accent-card"><span>Operations</span><strong>Store workflow</strong></div>
       </div>
 
       <section className="card surface-card">
